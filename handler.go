@@ -11,25 +11,25 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-// DefaultAcceptLangKey is metadata key name for accept language
-var DefaultAcceptLangKey = "accept-language"
-
-var _ grpc.UnaryServerInterceptor = UnaryServerInterceptor
-
 type alKey struct{}
 
-func UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	acceptLangs := HandleAcceptLanguage(ctx)
-	ctx = context.WithValue(ctx, alKey{}, acceptLangs)
-	return handler(ctx, req)
+// UnaryServerInterceptor ...
+func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		acceptLangs := HandleAcceptLanguage(ctx)
+		ctx = context.WithValue(ctx, alKey{}, acceptLangs)
+		return handler(ctx, req)
+	}
 }
 
-func StreamServerInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
-	ctx := stream.Context()
-	acceptLangs := HandleAcceptLanguage(ctx)
-	ctx = context.WithValue(ctx, alKey{}, acceptLangs)
-	stream = multiint.NewServerStreamWithContext(stream, ctx)
-	return handler(srv, stream)
+func StreamServerInterceptor() grpc.StreamServerInterceptor {
+	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
+		ctx := stream.Context()
+		acceptLangs := HandleAcceptLanguage(ctx)
+		ctx = context.WithValue(ctx, alKey{}, acceptLangs)
+		stream = multiint.NewServerStreamWithContext(stream, ctx)
+		return handler(srv, stream)
+	}
 }
 
 func FromContext(ctx context.Context) AcceptLanguages {
@@ -46,12 +46,14 @@ func HandleAcceptLanguage(ctx context.Context) AcceptLanguages {
 		return nil
 	}
 
-	header, ok := md[DefaultAcceptLangKey]
+	acceptLangKey := "accept-language"
+
+	header, ok := md[acceptLangKey]
 	if !ok || len(header) == 0 {
-		DefaultAcceptLangKey = "grpcgateway-" + DefaultAcceptLangKey
+		acceptLangKey = "grpcgateway-accept-language"
 	}
 
-	header, ok = md[DefaultAcceptLangKey]
+	header, ok = md[acceptLangKey]
 	if !ok || len(header) == 0 {
 		return nil
 	}
